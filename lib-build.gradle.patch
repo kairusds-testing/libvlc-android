@@ -1,0 +1,5 @@
+2d1
+< apply plugin: "com.vanniktech.maven.publish"
+116,117d114
+< 
+< apply from: '../../buildsystem/publish.gradle'
