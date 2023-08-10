@@ -1,0 +1,11 @@
+2d1
+< apply plugin: "com.vanniktech.maven.publish"
+89a89,93
+> javadoc {
+>     destinationDir = file("${buildDir}/docs/javadoc")
+>     include "org/videolan/libvlc/**"
+> }
+> 
+116,117d119
+< 
+< apply from: '../../buildsystem/publish.gradle'
