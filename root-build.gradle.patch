@@ -1,7 +1,7 @@
-25c25
+25c25,28
 <     tasks.withType(Javadoc) {
 ---
 >     task javadoc(type: Javadoc) {
-27a28,29
->         destinationDir = file("${buildDir}/docs/javadoc")
+>     	source = sourceSets.main.allJava
+>         destinationDir = file("${buildDir}/docs")
 >         include "org/videolan/libvlc/**"
