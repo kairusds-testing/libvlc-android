@@ -1,0 +1,7 @@
+25c25
+<     tasks.withType(Javadoc) {
+---
+>     task javadoc(type: Javadoc) {
+27a28,29
+>         destinationDir = file("${buildDir}/docs/javadoc")
+>         include "org/videolan/libvlc/**"
