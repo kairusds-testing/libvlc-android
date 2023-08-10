@@ -1,7 +1,7 @@
 2d1
 < apply plugin: "com.vanniktech.maven.publish"
 89a89,93
-> javadoc {
+> task javadoc(type: Javadoc) {
 >     destinationDir = file("${buildDir}/docs/javadoc")
 >     include "org/videolan/libvlc/**"
 > }
