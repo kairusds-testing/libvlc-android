@@ -1,11 +1,5 @@
-19a20,29
-> 
->     exclude "**/R"
->     exclude "**/R.**"
->     exclude "**/R\$**"
->     exclude "**/BuildConfig*"
-> 
+19a20,23
+>     options.windowTitle = "libvlcjni-android API Documentation (v${android.defaultConfig.versionName})"
 >     options.memberLevel = JavadocMemberLevel.PROTECTED
->     options.linkSource false
 >     options.author = false
 >     failOnError true
