@@ -1,5 +1,57 @@
 2d1
 < apply plugin: "com.vanniktech.maven.publish"
-116,117d114
+57c56
+<         //Custom APK name
+---
+>         //Custom library name
+89a89,133
+> task generateApiDoc() {
+>     group "reporting"
+>     description "Generates Javadoc."
+> }
+> 
+> android.libraryVariants.all { variant ->
+>     def javadocTask = project.tasks.create("generate${variant.name.capitalize()}Javadoc", Javadoc) {
+>         title "API Documentation (${project.android.defaultConfig.versionName})"
+>         group "ApiDoc"
+>         description "Generates Javadoc for $variant.name."
+>         source = variant.sourceSets.collect { it.java.sourceFiles }.inject { m, i -> m + i }
+> 
+>         // To fix issue: Error: Can not create variant 'android-lint' after configuration ': library: debugRuntimeElements' has been resolved    
+>         doFirst {
+>             classpath = project.files(variant.javaCompileProvider.get().classpath.files,
+>                 project.android.getBootClasspath())
+>         }
+> 
+>         if(JavaVersion.current().isJava8Compatible()) {
+>             options.addStringOption('Xdoclint:none', '-quiet')
+>         }
+> 
+>         include "**/org/videolan/libvlc/*"
+>         exclude "**/R"
+>         exclude "**/R.**"
+>         exclude "**/R\$**"
+>         exclude "**/BuildConfig*"
+> 
+>         if (JavaVersion.current().isJava8Compatible()) {
+>             options.addStringOption('Xdoclint:none', '-quiet')
+>         }
+> 
+>         options.windowTitle = "API Documentation (${project.android.defaultConfig.versionName})"
+>         options.memberLevel = JavadocMemberLevel.PROTECTED
+>         options.linkSource false
+>         options.author = false
+> 
+>         failOnError true
+>     }
+> 
+>     javadocTask.dependsOn "assemble${variant.name.capitalize()}"
+>     generateApiDoc.dependsOn javadocTask
+> }
+> 
+> /*
+92a137
+> */
+116,117d160
 < 
 < apply from: '../../buildsystem/publish.gradle'
