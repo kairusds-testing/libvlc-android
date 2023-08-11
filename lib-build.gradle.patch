@@ -1,74 +1,46 @@
-2d1
-< apply plugin: "com.vanniktech.maven.publish"
-7c6
-<     library_version = "$rootProject.ext.libvlcVersion"
----
->     library_version = "3.5.4-eap4"
-14,16c13,15
-<         compileSdkVersion rootProject.ext.compileSdkVersion
-<         targetSdkVersion rootProject.ext.targetSdkVersion
-<         minSdkVersion rootProject.ext.minSdkVersion
----
->         compileSdkVersion 33
->         targetSdkVersion 33
->         minSdkVersion 17
-57c56
+55c55
 <         //Custom APK name
 ---
 >         //Custom library name
-89a89,132
-> task generateApiDoc() {
->     group "reporting"
->     description "Generates Javadoc."
-> }
+60a61,101
 > 
-> android.libraryVariants.all { variant ->
->     def javadocTask = project.tasks.create("generate${variant.name.capitalize()}Javadoc", Javadoc) {
->         title "API Documentation (${project.android.defaultConfig.versionName})"
->         group "ApiDoc"
->         description "Generates Javadoc for $variant.name."
->         source = variant.sourceSets.collect { it.java.sourceFiles }.inject { m, i -> m + i }
-> 
->         // To fix issue: Error: Can not create variant 'android-lint' after configuration ': library: debugRuntimeElements' has been resolved    
->         doFirst {
->             classpath = project.files(variant.javaCompileProvider.get().classpath.files,
->                 project.android.getBootClasspath())
+>         def javadocTask = project.tasks.create("generate${variant.name.capitalize()}Javadoc", Javadoc) {
+>             title "API Documentation (${project.android.defaultConfig.versionName})"
+>             group "ApiDoc"
+>             description "Generates Javadoc for $variant.name."
+>             source = variant.sourceSets.collect { it.java.sourceFiles }.inject { m, i -> m + i }
+>     
+>             // To fix issue: Error: Can not create variant 'android-lint' after configuration ': library: debugRuntimeElements' has been resolved    
+>             doFirst {
+>                 classpath = project.files(variant.javaCompileProvider.get().classpath.files,
+>                     project.android.getBootClasspath())
+>             }
+>     
+>             if(JavaVersion.current().isJava8Compatible()) {
+>                 options.addStringOption('Xdoclint:none', '-quiet')
+>             }
+>     
+>             exclude "**/R"
+>             exclude "**/R.**"
+>             exclude "**/R\$**"
+>             exclude "**/BuildConfig*"
+>     
+>             if (JavaVersion.current().isJava8Compatible()) {
+>                 options.addStringOption('Xdoclint:none', '-quiet')
+>             }
+>     
+>             options.windowTitle = "API Documentation (${project.android.defaultConfig.versionName})"
+>             options.memberLevel = JavadocMemberLevel.PROTECTED
+>             options.linkSource false
+>             options.author = false
+>     
+>             failOnError true
 >         }
-> 
->         if(JavaVersion.current().isJava8Compatible()) {
->             options.addStringOption('Xdoclint:none', '-quiet')
->         }
-> 
->         exclude "**/R"
->         exclude "**/R.**"
->         exclude "**/R\$**"
->         exclude "**/BuildConfig*"
-> 
->         if (JavaVersion.current().isJava8Compatible()) {
->             options.addStringOption('Xdoclint:none', '-quiet')
->         }
-> 
->         options.windowTitle = "API Documentation (${project.android.defaultConfig.versionName})"
->         options.memberLevel = JavadocMemberLevel.PROTECTED
->         options.linkSource false
->         options.author = false
-> 
->         failOnError true
+>     
+>         javadocTask.dependsOn "assemble${variant.name.capitalize()}"
+>         generateApiDoc.dependsOn javadocTask
 >     }
 > 
->     javadocTask.dependsOn "assemble${variant.name.capitalize()}"
->     generateApiDoc.dependsOn javadocTask
-> }
-> 
-> /*
-92a136
-> */
-95,96c139,140
-<     api "androidx.annotation:annotation:$rootProject.ext.androidxAnnotationVersion"
-<     api "androidx.legacy:legacy-support-v4:$rootProject.ext.androidxLegacyVersion"
----
->     api "androidx.annotation:annotation:1.3.0"
->     api "androidx.legacy:legacy-support-v4:1.0.0"
-116,117d159
-< 
-< apply from: '../../buildsystem/publish.gradle'
+>     task generateApiDoc() {
+>         group "reporting"
+>         description "Generates Javadoc."
