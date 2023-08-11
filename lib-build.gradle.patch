@@ -1,10 +1,22 @@
 2d1
 < apply plugin: "com.vanniktech.maven.publish"
+7c6
+<     library_version = "$rootProject.ext.libvlcVersion"
+---
+>     library_version = "3.5.4-eap4"
+14,16c13,15
+<         compileSdkVersion rootProject.ext.compileSdkVersion
+<         targetSdkVersion rootProject.ext.targetSdkVersion
+<         minSdkVersion rootProject.ext.minSdkVersion
+---
+>         compileSdkVersion 33
+>         targetSdkVersion 33
+>         minSdkVersion 17
 57c56
 <         //Custom APK name
 ---
 >         //Custom library name
-89a89,133
+89a89,132
 > task generateApiDoc() {
 >     group "reporting"
 >     description "Generates Javadoc."
@@ -27,7 +39,6 @@
 >             options.addStringOption('Xdoclint:none', '-quiet')
 >         }
 > 
->         include "**/org/videolan/libvlc/*"
 >         exclude "**/R"
 >         exclude "**/R.**"
 >         exclude "**/R\$**"
@@ -50,8 +61,14 @@
 > }
 > 
 > /*
-92a137
+92a136
 > */
-116,117d160
+95,96c139,140
+<     api "androidx.annotation:annotation:$rootProject.ext.androidxAnnotationVersion"
+<     api "androidx.legacy:legacy-support-v4:$rootProject.ext.androidxLegacyVersion"
+---
+>     api "androidx.annotation:annotation:1.3.0"
+>     api "androidx.legacy:legacy-support-v4:1.0.0"
+116,117d159
 < 
 < apply from: '../../buildsystem/publish.gradle'
