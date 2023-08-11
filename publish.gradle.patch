@@ -1,0 +1,11 @@
+19a20,29
+> 
+>     exclude "**/R"
+>     exclude "**/R.**"
+>     exclude "**/R\$**"
+>     exclude "**/BuildConfig*"
+> 
+>     options.memberLevel = JavadocMemberLevel.PROTECTED
+>     options.linkSource false
+>     options.author = false
+>     failOnError true
