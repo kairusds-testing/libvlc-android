@@ -1,0 +1,23 @@
+name: Android SDK Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Command to run"
+        default: "sdkmanager --list"
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Add Android SDK command-line tools to PATH
+      run: echo "$ANDROID_HOME/tools/bin" >> $GITHUB_PATH
+
+    - name: "Accept all sdkmanager licenses"
+      run: yes | sdkmanager --licenses
+
+    - name: "Run command"
+      run: "${{ github.event.inputs.command }}"
