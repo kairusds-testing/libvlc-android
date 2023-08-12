@@ -1,0 +1,112 @@
+name: Deploy Javadoc to Pages
+
+on: workflow_dispatch
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: "bash"
+    container: 
+      image: registry.videolan.org/vlc-debian-android:20220224093321
+      options: --user root
+
+    steps:
+    - name: Clone vlc-android
+      run: |
+        git clone -b 3.5.x https://code.videolan.org/videolan/vlc-android.git
+        git config --global --add safe.directory $(realpath vlc-android)
+        cd vlc-android
+        # Switch to vlc-android v3.5.4
+        git checkout a55f148e31235d59d11e1237a388c962051f47c1
+
+    - name: Restore cached Gradle modules
+      id: cache-gradle-restore
+      uses: actions/cache/restore@v3
+      with:
+        key: ${{ runner.os }}-build-cache-gradle-${{ hashFiles('**/*.gradle') }}
+        path: |
+          vlc-android/.gradle/
+          vlc-android/gradle-7.2/
+          vlc-android/gradle-7.3.3/
+          vlc-android/gradle-7.4/
+          vlc-android/gradle/
+          vlc-android/gradlew
+
+    - name: Build javadoc
+      run: |
+        cd vlc-android
+        
+        M2_REPO="$(pwd)/aars/repository"
+        mkdir -p $M2_REPO
+        
+        wget https://github.com/kairusds-testing/libvlc-android-test/raw/javadoc/publish.gradle.patch
+        patch buildsystem/publish.gradle < publish.gradle.patch
+        
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        
+        chmod -R +x buildsystem
+        ./buildsystem/compile.sh --init -b
+        GRADLE_ABI=ALL RELEASE_SIGNING_ENABLED=false ./gradlew -Dmaven.repo.local=$M2_REPO -p libvlcjni publishToMavenLocal
+        
+        cd ..
+        mkdir public
+        unzip $M2_REPO/org/videolan/android/libvlc-all/3.*/*-javadoc.jar -d public
+
+    - name: Upload javadoc artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: public
+        path: public
+        retention-days: 1
+
+    - name: Save cached Gradle modules
+      id: cache-gradle-save
+      uses: actions/cache/save@v3
+      with:
+        key: ${{ steps.cache-gradle-restore.outputs.cache-primary-key }}
+        path: |
+          vlc-android/.gradle/
+          vlc-android/gradle-7.2/
+          vlc-android/gradle-7.3.3/
+          vlc-android/gradle-7.4/
+          vlc-android/gradle/
+          vlc-android/gradlew
+
+  deploy:
+    needs: build
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/configure-pages@v3
+
+      - name: Download javadoc artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: public
+          path: public
+
+      - name: Upload javadoc to pages
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: "public"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
