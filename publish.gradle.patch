@@ -1,9 +1,9 @@
 19a20,27
 > 
->     options.docTitle "libvlcjni-android API Documentation (v${android.defaultConfig.versionName})"
+>     options.docTitle = "libvlcjni-android API Documentation (v${android.defaultConfig.versionName})"
 >     options.encoding = "UTF-8"
 >     options.addStringOption("Xdoclint:none,-missing", "-quiet")
->     options.memberLevel JavadocMemberLevel.PROTECTED
+>     options.memberLevel = JavadocMemberLevel.PROTECTED
 >     // options.linkSource true
->     options.use true
+>     options.use = true
 >     failOnError true
