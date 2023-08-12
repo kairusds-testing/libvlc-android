@@ -1,5 +1,6 @@
-19a20,23
+19a20,24
 >     options.windowTitle = "libvlcjni-android API Documentation (v${android.defaultConfig.versionName})"
 >     options.memberLevel = JavadocMemberLevel.PROTECTED
+>     options.linkSource true
 >     options.author = false
 >     failOnError true
