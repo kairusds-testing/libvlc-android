@@ -1,16 +1,15 @@
-package com.github.kairusds.libvlcandroidtest;
+package github.kairusds.libvlcandroidtest;
 
 import android.content.Context;
-import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.videolan.libvlc.LibVLC;
 import org.videolan.libvlc.Media;
 import org.videolan.libvlc.MediaPlayer;
-import org.videolan.libvlc.util.HWDecoderUtil;
 import org.videolan.libvlc.util.VLCVideoLayout;
 
 import java.io.IOException;
@@ -25,27 +24,18 @@ public class MainActivity extends AppCompatActivity  {
 
 	private LibVLC mLibVLC = null;
 	private MediaPlayer mMediaPlayer = null;
-	private int audiotrackSessionId;
+	private long time = 0L;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState){
 		super.onCreate(savedInstanceState);
 
 		setContentView(R.layout.activity_main);
-		init();
-
 		mLibVLC = new LibVLC(this, getOptions());
 		mMediaPlayer = new MediaPlayer(mLibVLC);
-		mMediaPlayer.setAudioOutput(((HWDecoderUtil.getAudioOutputFromDevice() == HWDecoderUtil.AudioOutput.OPENSLES) ? "opensles_android" : null));
+		mMediaPlayer.setAudioOutput("opensles_android");
 
 		mVideoLayout = findViewById(R.id.video_layout);
-	}
-
-	private void init(){
-		if(audiotrackSessionId == null){
-			AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-			audiotrackSessionId = audioManager.generateAudioSessionId();
-		}
 	}
 
 	private ArrayList<String> getOptions(){
@@ -59,7 +49,6 @@ public class MainActivity extends AppCompatActivity  {
 		options.add("0");
 		options.add("--audio-resampler");
 		options.add("soxr"); // use soxr for audio resampling
-		options.add("--audiotrack-session-id=" + audiotrackSessionId);
 		options.add("-v"); // minimum vlc logging
 		options.add("--preferred-resolution=-1"); // use maximum resolution
 
@@ -84,7 +73,7 @@ public class MainActivity extends AppCompatActivity  {
 	protected void onResume() {
 		super.onResume();
 		makeFullScreen();
-		mMediaPlayer.play();
+		if(time > 0L) mMediaPlayer.setTime(time);
 	}
 
 	@Override
@@ -98,15 +87,13 @@ public class MainActivity extends AppCompatActivity  {
 	@Override
 	protected void onStart(){
 		super.onStart();
-
 		mMediaPlayer.attachViews(mVideoLayout, null, ENABLE_SUBTITLES, USE_TEXTURE_VIEW);
-
-		try {
+		try{
 			final Media media = new Media(mLibVLC, getAssets().openFd(ASSET_FILENAME));
 			media.setHWDecoderEnabled(true, true); // full hardware decoding
 			mMediaPlayer.setMedia(media);
 			media.release();
-		} catch (IOException e){
+		}catch(IOException e){
 			throw new RuntimeException("Invalid asset folder");
 		}
 		mMediaPlayer.play();
@@ -115,9 +102,10 @@ public class MainActivity extends AppCompatActivity  {
 	@Override
 	protected void onStop(){ // activity is in the background or minimized
 		super.onStop();
+		time = mMediaPlayer.getTime();
 		mMediaPlayer.pause();
 		// mMediaPlayer.stop();
-		// mMediaPlayer.detachViews();
+		mMediaPlayer.detachViews();
 	}
 
 }
