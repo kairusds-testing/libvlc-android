@@ -1,7 +1,13 @@
 name: Android Debug
 
 on:
+  workflow_dispatch:
   push:
+    paths-ignore:
+    - '.github/**'
+    - '.gitignore'
+    - 'README.md'
+    - 'LICENSE'
     branches: [ master ]
 
 jobs:
