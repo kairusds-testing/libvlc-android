@@ -36,12 +36,12 @@ public class MainActivity extends AppCompatActivity  {
 
 		setContentView(R.layout.activity_main);
 		AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-		audioSessionId = audioManager.generateAudioSessionId();
+		audiotrackSessionId = audioManager.generateAudioSessionId();
 
 		mLibVLC = new LibVLC(this, getOptions());
 		mMediaPlayer = new MediaPlayer(mLibVLC);
 		mMediaPlayer.setEventListener(event -> {
-			if(event.type = MediaPlayer.Event.TimeChanged){
+			if(event.type == MediaPlayer.Event.TimeChanged){
 				time = event.getTimeChanged();
 			}
 		});
