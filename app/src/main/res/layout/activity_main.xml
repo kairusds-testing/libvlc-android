@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:keepScreenOn="true"
     android:background="@android:color/background_dark"
-    tools:context=".NativeActivity">
+    tools:context=".MainActivity">
 
     <org.videolan.libvlc.util.VLCVideoLayout
         android:id="@+id/video_layout"
