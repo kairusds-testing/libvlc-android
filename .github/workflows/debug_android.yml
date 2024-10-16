@@ -2,6 +2,13 @@ name: Android Debug
 
 on:
   workflow_dispatch:
+  push:
+    paths-ignore:
+    - '.github/**'
+    - '.gitignore'
+    - 'README.md'
+    - 'LICENSE'
+    branches: [ master ]
 
 jobs:
   build:
@@ -24,8 +31,8 @@ jobs:
       with:
         arguments: build
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+    - name: Upload apk to a release
+      uses: softprops/action-gh-release@v2
       with:
-        name: app
-        path: app/build/outputs/apk/debug/*.apk
+        files: app/build/outputs/apk/release/*.apk
+        tag_name: test
