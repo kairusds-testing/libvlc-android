@@ -28,7 +28,7 @@ public class MainActivity extends AppCompatActivity  {
 	private LibVLC mLibVLC = null;
 	private MediaPlayer mMediaPlayer = null;
 	private long time = 0L;
-	private int audioSessionId = 0;
+	private int audiotrackSessionId = 0;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState){
@@ -40,6 +40,11 @@ public class MainActivity extends AppCompatActivity  {
 
 		mLibVLC = new LibVLC(this, getOptions());
 		mMediaPlayer = new MediaPlayer(mLibVLC);
+		mMediaPlayer.setEventListener(event -> {
+			if(event.type = MediaPlayer.Event.TimeChanged){
+				time = event.getTimeChanged();
+			}
+		});
 		// mMediaPlayer.setAudioOutput("opensles_android");
 
 		mVideoLayout = findViewById(R.id.video_layout);
@@ -113,7 +118,8 @@ public class MainActivity extends AppCompatActivity  {
 			if(mMediaPlayer.isPlaying()){
 				mMediaPlayer.pause();
 			}else{
-				mMediaPlayer.resume();
+				mMediaPlayer.setTime(time);
+				mMediaPlayer.play();
 			}
 		});
 		//	}
@@ -123,7 +129,7 @@ public class MainActivity extends AppCompatActivity  {
 	@Override
 	protected void onStop(){ // activity is in the background or minimized
 		super.onStop();
-		time = mMediaPlayer.getTime();
+		// time = mMediaPlayer.getTime();
 		mMediaPlayer.pause();
 		// mMediaPlayer.stop();
 		mMediaPlayer.detachViews();
