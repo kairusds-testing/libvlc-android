@@ -1,48 +1,66 @@
 package github.kairusds.libvlcandroidtest;
 
+import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
 import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 
 import org.videolan.libvlc.LibVLC;
 import org.videolan.libvlc.Media;
 import org.videolan.libvlc.MediaPlayer;
+import static org.videolan.libvlc.MediaPlayer.Event;
 import org.videolan.libvlc.util.VLCVideoLayout;
 
-import java.io.IOException;
+import org.apache.tika.Tika;
+
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity  {
 	private static final boolean USE_TEXTURE_VIEW = false;
-	private static final boolean ENABLE_SUBTITLES = true;
-	private static final String ASSET_FILENAME = "bbb.webm";
+	private static final boolean ENABLE_SUBTITLES = false;
+	private static final int FILE_ACCESS_REQUEST = 1;
 
-	private VLCVideoLayout mVideoLayout = null;
+	private final Handler handler = new Handler(Looper.getMainLooper());
+	private ExecutorService executor;
 
-	private LibVLC mLibVLC = null;
-	private MediaPlayer mMediaPlayer = null;
+	private VLCVideoLayout videoLayout = null;
+	private LibVLC libVLC = null;
+	private MediaPlayer mediaPlayer = null;
 	private long time = 0L;
+	private int audiotrackSessionId = 0;
+	private final ArrayList<String> options = new ArrayList<>();
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState){
 		super.onCreate(savedInstanceState);
 
 		setContentView(R.layout.activity_main);
-		mLibVLC = new LibVLC(this, getOptions());
-		mMediaPlayer = new MediaPlayer(mLibVLC);
-		mMediaPlayer.setAudioOutput("opensles_android");
+		AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+		audiotrackSessionId = audioManager.generateAudioSessionId();
 
-		mVideoLayout = findViewById(R.id.video_layout);
-	}
-
-	private ArrayList<String> getOptions(){
-		final ArrayList<String> options = new ArrayList<>();
-		options.add("--no-audio-time-stretch");
 		options.add("--avcodec-skiploopfilter");
-		options.add("-1");
+		options.add("0");
 		options.add("--avcodec-skip-frame");
 		options.add("0");
 		options.add("--avcodec-skip-idct");
@@ -51,8 +69,65 @@ public class MainActivity extends AppCompatActivity  {
 		options.add("soxr"); // use soxr for audio resampling
 		options.add("-v"); // minimum vlc logging
 		options.add("--preferred-resolution=-1"); // use maximum resolution
+		options.add("--audiotrack-session-id=" + audiotrackSessionId);
 
-		return options;
+		videoLayout = findViewById(R.id.video_layout);
+		videoLayout.setOnClickListener(v -> {
+			if(libVLCAvailable()){
+				if(mediaPlayer.isPlaying()){
+					pause();
+				}else{
+					play();
+				}
+			}else{
+				executor = Executors.newSingleThreadExecutor();
+				showFilePickerDialog(Environment.getExternalStorageDirectory());
+			}
+		});
+		videoLayout.setOnLongClickListener(v -> {
+			if(libVLCAvailable()){
+				destroyVLC();
+				return true;
+			}
+			return false;
+		});
+
+		checkPermissions();
+	}
+
+	private void checkPermissions(){
+		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()){
+			Uri uri = Uri.parse("package:" + getPackageName());
+			Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, uri);
+			startActivityForResult(intent, FILE_ACCESS_REQUEST);
+		}else if(Build.VERSION.SDK_INT < Build.VERSION_CODES.R && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+			ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE}, FILE_ACCESS_REQUEST);
+		}
+	}
+
+	private void toast(String str){
+		Toast.makeText(this, str, Toast.LENGTH_LONG).show();
+	}
+
+	private void initVLC(){
+		if(libVLCAvailable()) return;
+		libVLC = new LibVLC(this, options);
+		mediaPlayer = new MediaPlayer(libVLC);
+	}
+
+	private void destroyVLC(){
+		if(!libVLCAvailable()) return;
+		time = 0L;
+		mediaPlayer.stop();
+		mediaPlayer.detachViews();
+		mediaPlayer.release();
+		libVLC.release();
+		mediaPlayer = null;
+		libVLC = null;
+	}
+
+	private boolean libVLCAvailable(){
+		return libVLC != null && mediaPlayer != null;
 	}
 
 	private void makeFullScreen() {
@@ -73,39 +148,173 @@ public class MainActivity extends AppCompatActivity  {
 	protected void onResume() {
 		super.onResume();
 		makeFullScreen();
-		if(time > 0L) mMediaPlayer.setTime(time);
+		// if(time > 0L) mediaPlayer.setTime(time);
 	}
 
 	@Override
 	protected void onDestroy(){
 		super.onDestroy();
-		mMediaPlayer.detachViews();
-		mMediaPlayer.release();
-		mLibVLC.release();
+		destroyVLC();
+		shutdownExecutor();
+	}
+
+	private void pause(){
+		if(!libVLCAvailable()) return;
+		time = mediaPlayer.getTime();
+		mediaPlayer.pause();
+	}
+
+	private void play(){
+		if(!libVLCAvailable()) return;
+		mediaPlayer.setTime(time);
+		mediaPlayer.play();
+	}
+
+	private void attachViews(){
+		if(!libVLCAvailable()) return;
+		mediaPlayer.attachViews(videoLayout, null, ENABLE_SUBTITLES, USE_TEXTURE_VIEW);
+	}
+
+	private void setVLCMedia(String path){
+		if(libVLCAvailable()) return;
+		initVLC();
+		attachViews();
+
+		try{
+			final Media media = new Media(libVLC, path);
+			media.setHWDecoderEnabled(true, true); // full hardware decoding
+			mediaPlayer.setMedia(media);
+			// media.release();
+		}catch(Exception e){
+			toast(e.getMessage());
+		}
+		mediaPlayer.setEventListener(event -> {
+			switch(event.type){
+				case Event.TimeChanged:
+					time = event.getTimeChanged();
+					break;
+				case Event.EndReached:
+					destroyVLC();
+					break;
+			}
+		});
+		
+		play();
+	}
+
+	private void showFilePickerDialog(File dir){
+		try{
+			executor.execute(() -> {
+				File[] files = dir.listFiles();
+				Arrays.sort(files, new Comparator<File>(){
+					@Override
+					public int compare(File f1, File f2){
+						String name1 = f1.getName();
+						String name2 = f2.getName();
+	
+						boolean isSymbol1 = !Character.isLetterOrDigit(name1.charAt(0));
+						boolean isSymbol2 = !Character.isLetterOrDigit(name2.charAt(0));
+
+						if(isSymbol1 && !isSymbol2) return -1;
+						if(!isSymbol1 && isSymbol2) return 1;
+
+						return name1.compareToIgnoreCase(name2);
+					}
+				});
+
+				ArrayList<String> fileList = new ArrayList<>();
+				HashMap<String, String> paths = new HashMap<>();			
+				fileList.add("..");
+	
+				if(files != null){
+					Tika tika = new Tika();
+					for(File file : files){
+						if(file.isDirectory()){
+							fileList.add(file.getName());
+							paths.put(file.getName(), file.getAbsolutePath());
+						}else{
+							String mimetype = tika.detect(file.getName());
+							if(mimetype.startsWith("video/")){
+								fileList.add(file.getName());
+								paths.put(file.getName(), file.getAbsolutePath());
+							}
+						}
+					}
+				}
+	
+				handler.post(() -> {
+					if(files == null){
+						toast("Unable to access directory");
+						shutdownExecutor();
+						return;
+					}
+	
+					ArrayAdapter<String> adapter = new ArrayAdapter<>(MainActivity.this, android.R.layout.select_dialog_item, fileList);
+					AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+					builder.setTitle("Choose a video file");
+					builder.setAdapter(adapter, (dialog, which) -> {
+						if(which == 0){
+							File parentDir = dir.getParentFile();
+							if(parentDir != null){
+								dialog.dismiss();
+								showFilePickerDialog(parentDir);
+							}else{
+								toast("No parent directory");
+							}
+						}else{
+							String filename = fileList.get(which);
+							String filepath = paths.get(filename);
+							File selectedFile = new File(filepath);
+							if(selectedFile.isDirectory()){
+								dialog.dismiss();
+								showFilePickerDialog(selectedFile);
+							}else{
+								setVLCMedia(filepath);
+								dialog.dismiss();
+								shutdownExecutor();
+							}
+						}
+					});
+					builder.setNegativeButton("Cancel", null);
+					builder.show();
+				});
+			});
+		}catch(Exception e){
+			toast(e.getMessage());
+		}
+	}
+
+	private void shutdownExecutor(){
+		if(executor != null){
+			executor.shutdown();
+			executor = null;
+		}
+	}
+
+	@Override  
+	protected void onActivityResult(int requestCode, int resultCode, Intent data){  
+		super.onActivityResult(requestCode, resultCode, data);  
+		if(requestCode == FILE_ACCESS_REQUEST){
+			checkPermissions();
+		}
 	}
 
 	@Override
-	protected void onStart(){
+	protected void onStart(){ // activity is in view again or the real resumed state
 		super.onStart();
-		mMediaPlayer.attachViews(mVideoLayout, null, ENABLE_SUBTITLES, USE_TEXTURE_VIEW);
-		try{
-			final Media media = new Media(mLibVLC, getAssets().openFd(ASSET_FILENAME));
-			media.setHWDecoderEnabled(true, true); // full hardware decoding
-			mMediaPlayer.setMedia(media);
-			media.release();
-		}catch(IOException e){
-			throw new RuntimeException("Invalid asset folder");
-		}
-		mMediaPlayer.play();
+		// mediaPlayer.play();
+		attachViews();
+		play();
 	}
 
 	@Override
 	protected void onStop(){ // activity is in the background or minimized
 		super.onStop();
-		time = mMediaPlayer.getTime();
-		mMediaPlayer.pause();
-		// mMediaPlayer.stop();
-		mMediaPlayer.detachViews();
+		time = mediaPlayer.getTime();
+		pause();
+		// mediaPlayer.pause();
+		// mediaPlayer.stop();
+		mediaPlayer.detachViews();
 	}
 
 }

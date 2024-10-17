@@ -7,7 +7,7 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
--keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable, Signature, InnerClasses, EnclosingMethod
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
@@ -75,3 +75,9 @@
 
 # Guarded by a NoClassDefFoundError try/catch and only used when on the classpath.
 -dontwarn kotlin.Unit
+
+# Apache Tika
+-keep class org.apache.tika.** { *; }
+-keepclassmembers class org.apache.tika.** {
+	*;
+}
