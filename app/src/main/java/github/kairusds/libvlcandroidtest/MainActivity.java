@@ -42,7 +42,9 @@ public class MainActivity extends AppCompatActivity  {
 	private static final int FILE_ACCESS_REQUEST = 1;
 
 	private final Handler handler = new Handler(Looper.getMainLooper());
-	private ExecutorService executor;
+	private ExecutorService executor = null;
+
+	private final Tika tika = new Tika();
 
 	private VLCVideoLayout videoLayout = null;
 	private LibVLC libVLC = null;
@@ -73,20 +75,23 @@ public class MainActivity extends AppCompatActivity  {
 
 		videoLayout = findViewById(R.id.video_layout);
 		videoLayout.setOnClickListener(v -> {
-			if(libVLCAvailable()){
+			if(libvlcAvailable()){
 				if(mediaPlayer.isPlaying()){
 					pause();
 				}else{
 					play();
 				}
 			}else{
-				executor = Executors.newSingleThreadExecutor();
-				showFilePickerDialog(Environment.getExternalStorageDirectory());
+				if(executor == null){ // prevent taps in quick succession from executing the code below multiple times
+					executor = Executors.newSingleThreadExecutor();
+					showFilePickerDialog(Environment.getExternalStorageDirectory());
+				}
 			}
 		});
 		videoLayout.setOnLongClickListener(v -> {
-			if(libVLCAvailable()){
+			if(libvlcAvailable()){
 				destroyVLC();
+				toast("Stopped video.");
 				return true;
 			}
 			return false;
@@ -110,13 +115,13 @@ public class MainActivity extends AppCompatActivity  {
 	}
 
 	private void initVLC(){
-		if(libVLCAvailable()) return;
+		if(libvlcAvailable()) return;
 		libVLC = new LibVLC(this, options);
 		mediaPlayer = new MediaPlayer(libVLC);
 	}
 
 	private void destroyVLC(){
-		if(!libVLCAvailable()) return;
+		if(!libvlcAvailable()) return;
 		time = 0L;
 		mediaPlayer.stop();
 		mediaPlayer.detachViews();
@@ -126,7 +131,7 @@ public class MainActivity extends AppCompatActivity  {
 		libVLC = null;
 	}
 
-	private boolean libVLCAvailable(){
+	private boolean libvlcAvailable(){
 		return libVLC != null && mediaPlayer != null;
 	}
 
@@ -154,29 +159,29 @@ public class MainActivity extends AppCompatActivity  {
 	@Override
 	protected void onDestroy(){
 		super.onDestroy();
-		destroyVLC();
 		shutdownExecutor();
+		destroyVLC();
 	}
 
 	private void pause(){
-		if(!libVLCAvailable()) return;
+		if(!libvlcAvailable()) return;
 		time = mediaPlayer.getTime();
 		mediaPlayer.pause();
 	}
 
 	private void play(){
-		if(!libVLCAvailable()) return;
+		if(!libvlcAvailable()) return;
 		mediaPlayer.setTime(time);
 		mediaPlayer.play();
 	}
 
 	private void attachViews(){
-		if(!libVLCAvailable()) return;
+		if(!libvlcAvailable()) return;
 		mediaPlayer.attachViews(videoLayout, null, ENABLE_SUBTITLES, USE_TEXTURE_VIEW);
 	}
 
 	private void setVLCMedia(String path){
-		if(libVLCAvailable()) return;
+		if(libvlcAvailable()) return;
 		initVLC();
 		attachViews();
 
@@ -205,10 +210,32 @@ public class MainActivity extends AppCompatActivity  {
 	private void showFilePickerDialog(File dir){
 		try{
 			executor.execute(() -> {
-				File[] files = dir.listFiles();
+				File[] files = dir.listFiles(file -> {
+					if(file.isDirectory() && file.canRead()){
+						return true;
+					}
+
+					String mimetype = tika.detect(file.getName());
+					return mimetype.startsWith("video/");
+				});
+				
+				if(files == null){
+					toast("Unable to access directory");
+					shutdownExecutor();
+					return;
+				}
+				
 				Arrays.sort(files, new Comparator<File>(){
 					@Override
 					public int compare(File f1, File f2){
+						if(f1.isDirectory() && !f2.isDirectory()){
+							return -1;
+						}
+
+						if(!f1.isDirectory() && f2.isDirectory()){
+							return 1;
+						}
+
 						String name1 = f1.getName();
 						String name2 = f2.getName();
 	
@@ -226,56 +253,40 @@ public class MainActivity extends AppCompatActivity  {
 				HashMap<String, String> paths = new HashMap<>();			
 				fileList.add("..");
 	
-				if(files != null){
-					Tika tika = new Tika();
-					for(File file : files){
-						if(file.isDirectory()){
-							fileList.add(file.getName());
-							paths.put(file.getName(), file.getAbsolutePath());
-						}else{
-							String mimetype = tika.detect(file.getName());
-							if(mimetype.startsWith("video/")){
-								fileList.add(file.getName());
-								paths.put(file.getName(), file.getAbsolutePath());
-							}
-						}
-					}
+				for(File file : files){
+					fileList.add(file.getName());
+					paths.put(file.getName(), file.getAbsolutePath());
 				}
-	
+
 				handler.post(() -> {
-					if(files == null){
-						toast("Unable to access directory");
-						shutdownExecutor();
-						return;
-					}
-	
 					ArrayAdapter<String> adapter = new ArrayAdapter<>(MainActivity.this, android.R.layout.select_dialog_item, fileList);
 					AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+					builder.setCancelable(false); // prevent dismiss on click outside of dialog
 					builder.setTitle("Choose a video file");
 					builder.setAdapter(adapter, (dialog, which) -> {
 						if(which == 0){
 							File parentDir = dir.getParentFile();
-							if(parentDir != null){
-								dialog.dismiss();
+							if(parentDir != null && parentDir.canRead()){
 								showFilePickerDialog(parentDir);
 							}else{
 								toast("No parent directory");
+								showFilePickerDialog(dir);
 							}
 						}else{
 							String filename = fileList.get(which);
 							String filepath = paths.get(filename);
 							File selectedFile = new File(filepath);
 							if(selectedFile.isDirectory()){
-								dialog.dismiss();
 								showFilePickerDialog(selectedFile);
 							}else{
 								setVLCMedia(filepath);
-								dialog.dismiss();
 								shutdownExecutor();
 							}
 						}
 					});
-					builder.setNegativeButton("Cancel", null);
+					builder.setNegativeButton("Cancel", (dialog, which) -> {
+						shutdownExecutor();
+					});
 					builder.show();
 				});
 			});
@@ -310,11 +321,13 @@ public class MainActivity extends AppCompatActivity  {
 	@Override
 	protected void onStop(){ // activity is in the background or minimized
 		super.onStop();
-		time = mediaPlayer.getTime();
+		if(libvlcAvailable()){
+			time = mediaPlayer.getTime();
+			mediaPlayer.detachViews();
+		}
 		pause();
 		// mediaPlayer.pause();
 		// mediaPlayer.stop();
-		mediaPlayer.detachViews();
 	}
 
 }
